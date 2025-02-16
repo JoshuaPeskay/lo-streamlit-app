@@ -1,28 +1,33 @@
+import os
+import openai
 import streamlit as st
 import streamlit_authenticator as stauth
 import pandas as pd
 import numpy as np
-import datetime
 
-# ----------- Authentication Setup -----------
-# Define user details
-names = ["Tina", "Rex", "Harshit", "Julian", "Ibraheem"]
-usernames = ["tina", "rex", "harshit", "julian", "ibraheem"]
-# Plain-text passwords for demonstration only (not secure for production)
-passwords = ["password1", "password2", "password3", "password4", "password5"]
+# ------------------ 1. AUTHENTICATION SETUP ------------------
+# Hard-coded user details (includes an 'admin' account for easy login)
+names = ["Tina", "Rex", "Harshit", "Julian", "Ibraheem", "Admin"]
+usernames = ["tina", "rex", "harshit", "julian", "ibraheem", "admin"]
+passwords = ["password1", "password2", "password3", "password4", "password5", "password"]
 
 # Hash the passwords
 hashed_passwords = stauth.Hasher(passwords).generate()
 
-# Build the credentials dictionary
+# Build credentials dictionary
 credentials = {"usernames": {}}
 for name, username, pwd in zip(names, usernames, hashed_passwords):
     credentials["usernames"][username] = {"name": name, "password": pwd}
 
-# Create the authenticator instance using the credentials dictionary
-authenticator = stauth.Authenticate(credentials, "some_cookie_name", "some_signature_key", cookie_expiry_days=30)
+# Create authenticator instance
+authenticator = stauth.Authenticate(
+    credentials,             # our credentials dictionary
+    "some_cookie_name",      # a cookie name (must be unique)
+    "some_signature_key",    # a signature key (must be unique)
+    cookie_expiry_days=30
+)
 
-# Render the login widget on the main page using the new 'fields' parameter only
+# Render the login widget (note: no form_name parameter in new versions)
 name, authentication_status, username = authenticator.login(fields=["username", "password"])
 
 if not authentication_status:
@@ -32,77 +37,82 @@ if not authentication_status:
         st.warning("Please enter your username and password")
     st.stop()  # Stop the app if not authenticated
 else:
-    st.success(f"Welcome {name}!")
-    # Optionally, add a logout button in the sidebar
+    st.success(f"Welcome, {name}!")
+    # Logout button in the sidebar
     authenticator.logout("Logout", "sidebar")
-# ----------- End of Authentication Setup -----------
 
-# ----------------- Your App Code -----------------
-st.title('Hello, Lonely Octopus!')
+# ------------------ 2. OPENAI SETUP ------------------
+# Read API key from environment variable
+api_key = os.getenv("OPENAI_API_KEY")
+if not api_key:
+    st.error("OpenAI API key not found! Please set OPENAI_API_KEY in Streamlit secrets or your environment.")
+    st.stop()
 
-st.header('This is a header')
-st.subheader('This is a subheader')
-st.text('This is some black text.')
+openai.api_key = api_key
 
-# Simple chart example
-df = pd.DataFrame(np.random.randn(20, 3), columns=['a', 'b', 'c'])
-st.line_chart(df)
+# ------------------ 3. AI CONTENT ASSISTANT ------------------
+st.title("Joshua's Terrible Content Maker")
+st.markdown("I am here to help you craft terrible content.")
 
-# Generate a date range for a month
-dates = pd.date_range(start="2024-01-01", end="2024-01-31")
+def analyze_text(prompt_text: str) -> str:
+    """
+    Generate hilariously awful, unusable content using the OpenAI ChatCompletion API.
+    """
+    if not api_key:
+        return "Error: No API key found."
 
-# Weather data example
-weather_data = {
-    "Avg Temperature (°C)": np.round(np.random.normal(loc=18, scale=5, size=len(dates)), 1),
-    "Humidity (%)": np.random.randint(40, 80, size=len(dates)),
-    "Wind Speed (km/h)": np.round(np.random.uniform(5, 20, size=len(dates)), 1)
-}
-df_weather = pd.DataFrame(weather_data, index=dates)
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4o",  # or 'gpt-4' if you prefer
+            messages=[
+                {"role": "system", "content": "You are an assistant who helps generate hilariously awful, unusable content. You are also obsessed with the television show My Little Pony, especially Twilight Sparkle"},
+                {"role": "user", "content": f"Please help me generate hilariously awful, unusable content:\n{prompt_text}"}
+            ],
+            temperature=1.0,
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        return f"OpenAI API Error: {e}"
 
-# Generating monthly sales data for different services
-services = ["Cruises", "Skydiving", "Water skiing"]
-sales_data = {service: np.random.randint(200, 500, size=12) for service in services}
-months = pd.date_range(start="2024-01-01", end="2024-12-01", freq='MS')
-df_sales = pd.DataFrame(sales_data, index=months.strftime('%B'))
+def generate_image(prompt_text: str) -> str:
+    """
+    Generate an image using the DALL-E API.
+    """
+    if not api_key:
+        return ""
+    try:
+        response = openai.Image.create(
+            prompt=prompt_text,
+            n=1,
+            size="1024x1024"
+        )
+        return response["data"][0]["url"]
+    except Exception as e:
+        st.error(f"Image Generation Error: {e}")
+        return ""
 
-# Unique key for selectbox to avoid duplicate widget errors
-chart_type = st.selectbox('Choose a chart type:', ['Line', 'Bar'], key="chart_type_unique")
+# ------------------ 4. USER INTERFACE ------------------
+st.subheader("Generate a Social Media Post")
 
-if chart_type == 'Line':
-    st.write("Weather Data Overview")
-    st.line_chart(df_weather)
-elif chart_type == 'Bar':
-    st.write("Monthly Sales Data")
-    st.bar_chart(df_sales)
+prompt = st.text_area("What kind of terrible, unusable content would you like today?", "Write an article on fitness for young people", key="post_prompt")
 
-# Dictionary of names with their respective country and favorite color
-people_info = {
-    "Tina": {"country": "Canada", "fav_color": "yellow"},
-    "Rex": {"country": "the Philippines", "fav_color": "purple"},
-    "Harshit": {"country": "India", "fav_color": "orange"},
-    "Julian": {"country": "Australia", "fav_color": "black"},
-    "Ibraheem": {"country": "Morocco", "fav_color": "light blue"},
-}
+if st.button("Generate Content"):
+    with st.spinner("Generating content..."):
+        post_text = analyze_text(prompt)
+        st.write("### Your AI-Generated Post")
+        st.write(post_text)
 
-selected_name = st.sidebar.selectbox('Which Lonely Octopus are you interested in?', list(people_info.keys()), key="sidebar_select")
+    with st.spinner("Generating thumbnail..."):
+        image_url = generate_image(prompt)
+        if image_url:
+            st.image(image_url, caption="AI-Generated Thumbnail")
+        else:
+            st.write("No image generated.")
 
-selected_info = people_info[selected_name]
+# ------------------ 5. OPTIONAL: DEMO CHARTS OR OTHER CONTENT ------------------
+st.write("---")
+st.write("## Demo Charts & Other Content")
+st.write("Below is an example of how you can still include additional Streamlit components:")
 
-st.markdown(
-    f"<b>{selected_name}</b> is from <b>{selected_info['country']}</b>. Favorite color: <b>{selected_info['fav_color']}</b>.",
-    unsafe_allow_html=True
-)
-
-col1, col2 = st.columns(2)
-with col1:
-    st.line_chart(df['a'])
-with col2:
-    st.line_chart(df['b'])
-
-with st.expander("See explanation"):
-    st.text("Here you can put in detailed explanations.")
-
-if st.button('What is Streamlit?'):
-    st.write('A faster way to build and share data apps. Streamlit turns data scripts into shareable web apps in minutes.')
-else:
-    st.write('Click me to define streamlit.')
+df_demo = pd.DataFrame(np.random.randn(20, 3), columns=["a", "b", "c"])
+st.line_chart(df_demo, height=200)
