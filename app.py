@@ -7,6 +7,9 @@ st.text('This is some text.')
 import pandas as pd
 import numpy as np
 
+import os
+api_key = os.getenv("OPENAI_API_KEY")
+
 df = pd.DataFrame(np.random.randn(20, 3), columns=['a', 'b', 'c'])
 st.line_chart(df)
 # Generate a date range for a month
