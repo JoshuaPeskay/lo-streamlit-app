@@ -164,8 +164,6 @@ sales_data = {
 months = pd.date_range(start="2024-01-01", end="2024-12-01", freq='MS')
 df_sales = pd.DataFrame(sales_data, index=months.strftime('%B'))
 
-chart_type = st.selectbox('Choose a chart type:', ['Line', 'Bar'])
-
 if chart_type == 'Line':
     st.write("Weather Data Overview")
     st.line_chart(df_weather)
@@ -182,9 +180,6 @@ people_info = {
     "Ibraheem": {"country": "Morocco", "fav_color": "light blue"},
 }
 
-# Use a sidebar selectbox for the user to choose a name
-selected_name = st.sidebar.selectbox('Which Lonely Octopus are you interested in?', list(people_info.keys()))
-
 # Retrieve the country and favorite color for the selected name
 selected_info = people_info[selected_name]
 
@@ -196,6 +191,4 @@ with col1:
     st.line_chart(df['a'])
 with col2:
     st.line_chart(df['b'])
-
-
 
